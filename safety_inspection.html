@@ -125,54 +125,31 @@ header p { color: var(--text-muted); font-size: 13px; font-weight: 300; }
   background: var(--surface);
   border: 2px dashed rgba(255,107,53,0.3);
   border-radius: 18px;
-  padding: 30px 20px;
+  padding: 36px 20px;
   text-align: center;
+  cursor: pointer;
   transition: all 0.3s;
   margin-bottom: 16px;
 }
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--surface2);
+  transform: translateY(-2px);
+}
 .upload-zone input { display: none; }
-.upload-icon { font-size: 48px; display: block; margin-bottom: 12px; }
+.upload-icon { font-size: 52px; display: block; margin-bottom: 14px; }
 .upload-zone h2 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
-.upload-zone p { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
-.upload-btn-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 4px;
-}
-.upload-btn-cam, .upload-btn-gallery {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px 10px;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-.upload-btn-cam {
+.upload-zone p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+.upload-cta {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 11px 26px;
   background: linear-gradient(135deg, var(--accent), #ff9f6b);
   color: white;
-  box-shadow: 0 4px 16px rgba(255,107,53,0.3);
-}
-.upload-btn-cam:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,107,53,0.4); }
-.upload-btn-gallery {
-  background: var(--surface2);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-.upload-btn-gallery:hover { border-color: var(--accent); color: var(--accent); }
-.compress-note {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 /* PREVIEW */
@@ -350,16 +327,11 @@ header p { color: var(--text-muted); font-size: 13px; font-weight: 300; }
 
   <!-- UPLOAD -->
   <div class="upload-zone" id="dropZone">
-    <input type="file" id="fileInputGallery" accept="image/*">
-    <input type="file" id="fileInputCamera" accept="image/*" capture="environment">
+    <input type="file" id="fileInput" accept="image/*" capture="environment">
     <span class="upload-icon">📷</span>
-    <h2>설비 사진 선택</h2>
-    <p>카메라로 직접 찍거나<br>갤러리에서 기존 사진을 선택하세요</p>
-    <div class="upload-btn-row">
-      <label class="upload-btn-cam" for="fileInputCamera">📷 카메라 촬영</label>
-      <label class="upload-btn-gallery" for="fileInputGallery">🖼 갤러리 선택</label>
-    </div>
-    <p class="compress-note">⚡ 자동 압축 적용 — 용량 걱정 없어요</p>
+    <h2>설비 사진 촬영 또는 업로드</h2>
+    <p>스마트폰 카메라로 직접 찍거나<br>갤러리에서 이미지를 선택하세요</p>
+    <label class="upload-cta" for="fileInput">📂 사진 선택 / 카메라</label>
   </div>
 
   <!-- PREVIEW -->
@@ -441,56 +413,32 @@ header p { color: var(--text-muted); font-size: 13px; font-weight: 300; }
     if (key) { localStorage.setItem('gemini_safety_key', key); showToast('✅ API 키가 저장되었습니다'); }
   }
 
-  document.getElementById('fileInputGallery').addEventListener('change', e => {
-    if (e.target.files[0]) loadFile(e.target.files[0]);
-  });
-  document.getElementById('fileInputCamera').addEventListener('change', e => {
+  document.getElementById('fileInput').addEventListener('change', e => {
     if (e.target.files[0]) loadFile(e.target.files[0]);
   });
   const dz = document.getElementById('dropZone');
-  dz.addEventListener('dragover', e => { e.preventDefault(); });
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
   dz.addEventListener('drop', e => {
-    e.preventDefault();
+    e.preventDefault(); dz.classList.remove('drag-over');
     const f = e.dataTransfer.files[0];
     if (f && f.type.startsWith('image/')) loadFile(f);
   });
 
-  // 이미지 압축 함수 (1MB 이하로)
-  function compressImage(file) {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let w = img.width, h = img.height;
-          const MAX = 1024;
-          if (w > MAX || h > MAX) {
-            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-            else { w = Math.round(w * MAX / h); h = MAX; }
-          }
-          canvas.width = w; canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          const compressed = canvas.toDataURL('image/jpeg', 0.75);
-          resolve(compressed);
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function loadFile(file) {
+  function loadFile(file) {
     currentFile = file;
-    const compressed = await compressImage(file);
-    currentBase64 = compressed.split(',')[1];
-    document.getElementById('previewImg').src = compressed;
-    document.getElementById('previewWrap').style.display = 'block';
-    document.getElementById('dropZone').style.display = 'none';
-    document.getElementById('analyzeBtn').style.display = 'block';
-    document.getElementById('errorBox').style.display = 'none';
-    document.getElementById('resultBox').style.display = 'none';
-    document.getElementById('loadingBox').style.display = 'none';
+    const reader = new FileReader();
+    reader.onload = e => {
+      currentBase64 = e.target.result.split(',')[1];
+      document.getElementById('previewImg').src = e.target.result;
+      document.getElementById('previewWrap').style.display = 'block';
+      document.getElementById('dropZone').style.display = 'none';
+      document.getElementById('analyzeBtn').style.display = 'block';
+      document.getElementById('errorBox').style.display = 'none';
+      document.getElementById('resultBox').style.display = 'none';
+      document.getElementById('loadingBox').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
   }
 
   function changePhoto() {
@@ -498,8 +446,7 @@ header p { color: var(--text-muted); font-size: 13px; font-weight: 300; }
     document.getElementById('dropZone').style.display = 'block';
     document.getElementById('analyzeBtn').style.display = 'none';
     document.getElementById('resultBox').style.display = 'none';
-    document.getElementById('fileInputGallery').value = '';
-    document.getElementById('fileInputCamera').value = '';
+    document.getElementById('fileInput').value = '';
     currentFile = null; currentBase64 = null;
   }
 
@@ -510,7 +457,7 @@ header p { color: var(--text-muted); font-size: 13px; font-weight: 300; }
 
     const location = document.getElementById('location').value.trim();
     const equipType = document.getElementById('equipType').value;
-    const mediaType = 'image/jpeg';
+    const mediaType = currentFile.type || 'image/jpeg';
 
     document.getElementById('analyzeBtn').disabled = true;
     document.getElementById('loadingBox').style.display = 'block';
